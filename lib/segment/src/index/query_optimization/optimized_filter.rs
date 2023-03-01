@@ -15,12 +15,35 @@ pub struct OptimizedFilter<'a> {
     pub must: Option<Vec<OptimizedCondition<'a>>>,
     /// All conditions must NOT match
     pub must_not: Option<Vec<OptimizedCondition<'a>>>,
+    /// Nested object filter
+    pub nested: Option<Box<NestedOptimizedFilter<'a>>>,
+}
+
+pub struct NestedOptimizedFilter<'a> {
+    pub path: &'a str,
+    pub filter: OptimizedFilter<'a>,
 }
 
 pub fn check_optimized_filter(filter: &OptimizedFilter, point_id: PointOffsetType) -> bool {
     check_should(&filter.should, point_id)
         && check_must(&filter.must, point_id)
         && check_must_not(&filter.must_not, point_id)
+        && check_nested(&filter.nested, point_id)
+}
+
+// TODO so far only one level of nesting is supported on `must`
+fn check_nested(nested: &Option<Box<NestedOptimizedFilter>>, point_id: PointOffsetType) -> bool {
+    match nested {
+        None => true,
+        Some(nested) => nested.filter.must.as_ref().map_or(true, |must| {
+            must.iter().all(|condition| match condition {
+                OptimizedCondition::Filter(_filter) => {
+                    unreachable!("no nested filter in nested object filter");
+                }
+                OptimizedCondition::Checker(checker) => checker(point_id),
+            })
+        }),
+    }
 }
 
 fn check_condition(condition: &OptimizedCondition, point_id: PointOffsetType) -> bool {

@@ -21,7 +21,7 @@ pub fn condition_converter<'a>(
 ) -> ConditionCheckerFn<'a> {
     match condition {
         Condition::Field(field_condition) => field_indexes
-            .get(&field_condition.key)
+            .get(&field_condition.key.clone())
             .and_then(|indexes| {
                 indexes
                     .iter()

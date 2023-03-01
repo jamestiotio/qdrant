@@ -118,6 +118,13 @@ where
         }
     }
 
+    match &filter.nested {
+        None => {}
+        Some(nested_filter) => {
+            filter_estimations.push(estimate_filter(estimator, &nested_filter.filter, total))
+        }
+    }
+
     combine_must_estimations(&filter_estimations, total)
 }
 
@@ -259,6 +266,7 @@ mod tests {
                 test_condition("un-indexed".to_owned()),
             ]),
             must_not: None,
+            nested: None,
         };
 
         let estimation = estimate_filter(&test_estimator, &query, TOTAL);
@@ -281,6 +289,7 @@ mod tests {
             ]),
             must: None,
             must_not: None,
+            nested: None,
         };
 
         let estimation = estimate_filter(&test_estimator, &query, TOTAL);
@@ -300,6 +309,7 @@ mod tests {
             ]),
             must: None,
             must_not: None,
+            nested: None,
         };
 
         let estimation = estimate_filter(&test_estimator, &query, TOTAL);
@@ -321,6 +331,7 @@ mod tests {
                         test_condition("size".to_owned()),
                     ]),
                     must_not: None,
+                    nested: None,
                 }),
                 Condition::Filter(Filter {
                     should: None,
@@ -329,12 +340,14 @@ mod tests {
                         test_condition("size".to_owned()),
                     ]),
                     must_not: None,
+                    nested: None,
                 }),
             ]),
             must: None,
             must_not: Some(vec![Condition::HasId(HasIdCondition {
                 has_id: HashSet::from_iter([1, 2, 3, 4, 5].into_iter().map(|x| x.into())),
             })]),
+            nested: None,
         };
 
         let estimation = estimate_filter(&test_estimator, &query, TOTAL);
@@ -356,6 +369,7 @@ mod tests {
                         test_condition("size".to_owned()),
                     ]),
                     must_not: None,
+                    nested: None,
                 }),
                 Condition::Filter(Filter {
                     must: None,
@@ -364,11 +378,13 @@ mod tests {
                         test_condition("size".to_owned()),
                     ]),
                     must_not: None,
+                    nested: None,
                 }),
             ]),
             must_not: Some(vec![Condition::HasId(HasIdCondition {
                 has_id: HashSet::from_iter([1, 2, 3, 4, 5].into_iter().map(|x| x.into())),
             })]),
+            nested: None,
         };
 
         let estimation = estimate_filter(&test_estimator, &query, TOTAL);
