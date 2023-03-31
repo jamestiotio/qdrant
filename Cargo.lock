@@ -444,6 +444,7 @@ dependencies = [
  "tonic-build",
  "tower",
  "uuid",
+ "validator",
 ]
 
 [[package]]
