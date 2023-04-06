@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use crate::id_tracker::IdTrackerSS;
 use crate::index::field_index::FieldIndex;
-use crate::index::query_optimization::nested_condition_converter::NestedConditionCheckerResult::{
+use crate::index::query_optimization::nested_filter::NestedConditionCheckerResult::{
     Matches, NoMatch,
 };
 use crate::index::query_optimization::optimized_filter::ConditionCheckerFn;

@@ -295,7 +295,6 @@ where
                 must_not: Some(vec![Condition::HasId(HasIdCondition {
                     has_id: reference_vectors_ids.iter().cloned().collect(),
                 })]),
-                nested: None,
             }),
             with_payload: request.with_payload.clone(),
             with_vector: request.with_vector.clone(),

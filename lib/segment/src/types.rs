@@ -1113,6 +1113,31 @@ impl From<HashSet<PointIdType>> for HasIdCondition {
     }
 }
 
+/// Select points with payload for a specified nested field
+#[derive(Debug, Deserialize, Serialize, JsonSchema, Clone, PartialEq)]
+pub struct NestedCondition {
+    pub key: String,
+    pub filter: Filter,
+}
+
+#[derive(Debug, Deserialize, Serialize, JsonSchema, Clone, PartialEq)]
+pub struct NestedContainer {
+    pub nested: NestedCondition,
+}
+
+/// Container to workaround the untagged enum limitation for condition
+impl NestedContainer {
+    pub fn new(nested: NestedCondition) -> Self {
+        Self { nested }
+    }
+    pub fn key(&self) -> &str {
+        &self.nested.key
+    }
+    pub fn filter(&self) -> &Filter {
+        &self.nested.filter
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize, JsonSchema, Clone, PartialEq)]
 #[serde(untagged)]
 #[allow(clippy::large_enum_variant)]
@@ -1127,6 +1152,8 @@ pub enum Condition {
     HasId(HasIdCondition),
     /// Nested filter
     Filter(Filter),
+    /// Nested filters
+    Nested(NestedContainer),
 }
 
 /// Options for specifying which payload to include or not
@@ -1306,17 +1333,6 @@ pub struct Filter {
     pub must: Option<Vec<Condition>>,
     /// All conditions must NOT match
     pub must_not: Option<Vec<Condition>>,
-    /// Nested filters
-    pub nested: Option<Box<NestedFilter>>,
-}
-
-#[derive(Debug, Deserialize, Serialize, JsonSchema, Clone, PartialEq)]
-#[serde(deny_unknown_fields)]
-#[serde(rename_all = "snake_case")]
-pub struct NestedFilter {
-    pub path: String,
-    #[serde(flatten)]
-    pub filter: Filter,
 }
 
 impl Filter {
@@ -1325,7 +1341,6 @@ impl Filter {
             should: Some(vec![condition]),
             must: None,
             must_not: None,
-            nested: None,
         }
     }
 
@@ -1334,7 +1349,6 @@ impl Filter {
             should: None,
             must: Some(vec![condition]),
             must_not: None,
-            nested: None,
         }
     }
 
@@ -1343,7 +1357,6 @@ impl Filter {
             should: None,
             must: None,
             must_not: Some(vec![condition]),
-            nested: None,
         }
     }
 }
@@ -1386,7 +1399,6 @@ mod tests {
             ))]),
             must_not: None,
             should: None,
-            nested: None,
         };
         let json = serde_json::to_string_pretty(&filter).unwrap();
         eprintln!("{json}")
@@ -1617,31 +1629,59 @@ mod tests {
     fn test_parse_nested_filter_query() {
         let query = r#"
         {
-           "nested": {
-              "path": "country.cities[]",
-              "must": [
-                  {
-                      "key": "country.cities[].sightseeing",
-                      "values_count": {
-                          "gt": 2
+          "must": [
+            {
+              "nested": {
+                "key": "country.cities[]",
+                "filter": {
+                  "must": [
+                    {
+                      "key": "population",
+                      "range": {
+                        "gte": 8
                       }
-                  }
-              ]
+                    },
+                    {
+                      "key": "sightseeing",
+                      "values_count": {
+                        "lt": 3
+                      }
+                    }
+                  ]
+                }
+              }
             }
+          ]
         }
         "#;
-        let result: Filter = serde_json::from_str(query).unwrap();
-        let nested_filter = result.nested.unwrap();
-        assert_eq!(nested_filter.path, "country.cities[]");
-        let musts = nested_filter.filter.must.unwrap();
+        let filter: Filter = serde_json::from_str(query).unwrap();
+        let musts = filter.must.unwrap();
         assert_eq!(musts.len(), 1);
-        let condition = musts.get(0).unwrap();
-        match condition {
-            Condition::Field(field) => {
-                assert_eq!(field.key, "country.cities[].sightseeing");
+        match musts.get(0) {
+            Some(Condition::Nested(nested_condition)) => {
+                assert_eq!(nested_condition.nested.key, "country.cities[]");
+                let nested_musts = nested_condition.filter().must.as_ref().unwrap();
+                assert_eq!(nested_musts.len(), 2);
+                let first_must = nested_musts.get(0).unwrap();
+                match first_must {
+                    Condition::Field(c) => {
+                        assert_eq!(c.key, "population");
+                        assert!(c.range.is_some());
+                    }
+                    _ => panic!("Condition::Field expected"),
+                }
+
+                let second_must = nested_musts.get(1).unwrap();
+                match second_must {
+                    Condition::Field(c) => {
+                        assert_eq!(c.key, "sightseeing");
+                        assert!(c.values_count.is_some());
+                    }
+                    _ => panic!("Condition::Field expected"),
+                }
             }
-            _ => panic!("Condition expected"),
-        }
+            o => panic!("Condition::Nested expected but got {:?}", o),
+        };
     }
 
     #[test]

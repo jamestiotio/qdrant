@@ -9,8 +9,8 @@ use crate::payload_storage::condition_checker::ValueChecker;
 use crate::payload_storage::payload_storage_enum::PayloadStorageEnum;
 use crate::payload_storage::ConditionChecker;
 use crate::types::{
-    Condition, FieldCondition, Filter, IsEmptyCondition, IsNullCondition, NestedFilter,
-    OwnedPayloadRef, Payload, PointOffsetType,
+    Condition, FieldCondition, Filter, IsEmptyCondition, IsNullCondition, OwnedPayloadRef, Payload,
+    PointOffsetType,
 };
 
 fn check_condition<F>(checker: &F, condition: &Condition) -> bool
@@ -30,7 +30,6 @@ where
     check_should(checker, &filter.should)
         && check_must(checker, &filter.must)
         && check_must_not(checker, &filter.must_not)
-        && check_nested(checker, &filter.nested)
 }
 
 fn check_should<F>(checker: &F, should: &Option<Vec<Condition>>) -> bool
@@ -66,16 +65,6 @@ where
     }
 }
 
-fn check_nested<F>(checker: &F, nested: &Option<Box<NestedFilter>>) -> bool
-where
-    F: Fn(&Condition) -> bool,
-{
-    match nested {
-        None => true,
-        Some(filter) => check_filter(checker, &filter.filter),
-    }
-}
-
 pub fn check_payload<'a, F>(
     get_payload: F,
     id_tracker: &IdTrackerSS,
@@ -99,6 +88,7 @@ where
             has_id.has_id.contains(&external_id)
         }
         Condition::Filter(_) => unreachable!(),
+        Condition::Nested(_) => unreachable!(),
     };
 
     check_filter(&checker, query)
@@ -464,7 +454,6 @@ mod tests {
             should: None,
             must: Some(vec![match_red.clone()]),
             must_not: None,
-            nested: None,
         };
         assert!(payload_checker.check(0, &query));
 
@@ -472,7 +461,6 @@ mod tests {
             should: None,
             must: Some(vec![match_blue.clone()]),
             must_not: None,
-            nested: None,
         };
         assert!(!payload_checker.check(0, &query));
 
@@ -480,7 +468,6 @@ mod tests {
             should: None,
             must: None,
             must_not: Some(vec![match_blue.clone()]),
-            nested: None,
         };
         assert!(payload_checker.check(0, &query));
 
@@ -488,7 +475,6 @@ mod tests {
             should: None,
             must: None,
             must_not: Some(vec![match_red.clone()]),
-            nested: None,
         };
         assert!(!payload_checker.check(0, &query));
 
@@ -496,7 +482,6 @@ mod tests {
             should: Some(vec![match_red.clone(), match_blue.clone()]),
             must: Some(vec![with_delivery.clone(), in_berlin.clone()]),
             must_not: None,
-            nested: None,
         };
         assert!(payload_checker.check(0, &query));
 
@@ -504,7 +489,6 @@ mod tests {
             should: Some(vec![match_red.clone(), match_blue.clone()]),
             must: Some(vec![with_delivery, in_moscow.clone()]),
             must_not: None,
-            nested: None,
         };
         assert!(!payload_checker.check(0, &query));
 
@@ -514,18 +498,15 @@ mod tests {
                     should: None,
                     must: Some(vec![match_red.clone(), in_moscow.clone()]),
                     must_not: None,
-                    nested: None,
                 }),
                 Condition::Filter(Filter {
                     should: None,
                     must: Some(vec![match_blue.clone(), in_berlin.clone()]),
                     must_not: None,
-                    nested: None,
                 }),
             ]),
             must: None,
             must_not: None,
-            nested: None,
         };
         assert!(!payload_checker.check(0, &query));
 
@@ -535,18 +516,15 @@ mod tests {
                     should: None,
                     must: Some(vec![match_blue, in_moscow]),
                     must_not: None,
-                    nested: None,
                 }),
                 Condition::Filter(Filter {
                     should: None,
                     must: Some(vec![match_red, in_berlin]),
                     must_not: None,
-                    nested: None,
                 }),
             ]),
             must: None,
             must_not: None,
-            nested: None,
         };
         assert!(payload_checker.check(0, &query));
 
@@ -554,7 +532,6 @@ mod tests {
             should: None,
             must: None,
             must_not: Some(vec![with_bad_rating]),
-            nested: None,
         };
         assert!(!payload_checker.check(0, &query));
 
@@ -564,7 +541,6 @@ mod tests {
             should: None,
             must: None,
             must_not: Some(vec![Condition::HasId(ids.into())]),
-            nested: None,
         };
         assert!(!payload_checker.check(2, &query));
 
@@ -574,7 +550,6 @@ mod tests {
             should: None,
             must: None,
             must_not: Some(vec![Condition::HasId(ids.into())]),
-            nested: None,
         };
         assert!(payload_checker.check(10, &query));
 
@@ -584,7 +559,6 @@ mod tests {
             should: None,
             must: Some(vec![Condition::HasId(ids.into())]),
             must_not: None,
-            nested: None,
         };
         assert!(payload_checker.check(2, &query));
     }

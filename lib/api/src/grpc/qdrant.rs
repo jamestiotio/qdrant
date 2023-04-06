@@ -2581,24 +2581,11 @@ pub struct Filter {
     /// All conditions must NOT match
     #[prost(message, repeated, tag = "3")]
     pub must_not: ::prost::alloc::vec::Vec<Condition>,
-    /// Nested filter
-    #[prost(message, optional, boxed, tag = "4")]
-    pub nested: ::core::option::Option<::prost::alloc::boxed::Box<NestedFilter>>,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct NestedFilter {
-    /// Path to nested object
-    #[prost(string, tag = "1")]
-    pub path: ::prost::alloc::string::String,
-    /// Filter condition
-    #[prost(message, optional, boxed, tag = "2")]
-    pub filter: ::core::option::Option<::prost::alloc::boxed::Box<Filter>>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Condition {
-    #[prost(oneof = "condition::ConditionOneOf", tags = "1, 2, 3, 4, 5")]
+    #[prost(oneof = "condition::ConditionOneOf", tags = "1, 2, 3, 4, 5, 6")]
     pub condition_one_of: ::core::option::Option<condition::ConditionOneOf>,
 }
 /// Nested message and enum types in `Condition`.
@@ -2616,6 +2603,8 @@ pub mod condition {
         Filter(super::Filter),
         #[prost(message, tag = "5")]
         IsNull(super::IsNullCondition),
+        #[prost(message, tag = "6")]
+        Nested(super::NestedCondition),
     }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -2635,6 +2624,16 @@ pub struct IsNullCondition {
 pub struct HasIdCondition {
     #[prost(message, repeated, tag = "1")]
     pub has_id: ::prost::alloc::vec::Vec<PointId>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct NestedCondition {
+    /// Path to nested object
+    #[prost(string, tag = "1")]
+    pub key: ::prost::alloc::string::String,
+    /// Filter condition
+    #[prost(message, optional, tag = "2")]
+    pub filter: ::core::option::Option<Filter>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

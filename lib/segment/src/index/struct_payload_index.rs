@@ -223,6 +223,7 @@ impl StructPayloadIndex {
     fn condition_cardinality(&self, condition: &Condition) -> CardinalityEstimation {
         match condition {
             Condition::Filter(_) => panic!("Unexpected branching"),
+            Condition::Nested(_) => panic!("Unexpected branching"),
             Condition::IsEmpty(IsEmptyCondition { is_empty: field }) => {
                 let total_points = self.total_points();
 

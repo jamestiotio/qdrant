@@ -9,12 +9,10 @@ use crate::index::query_estimator::{
     combine_must_estimations, combine_should_estimations, invert_estimation,
 };
 use crate::index::query_optimization::condition_converter::condition_converter;
-use crate::index::query_optimization::nested_condition_converter::{
+use crate::index::query_optimization::nested_filter::{
     merge_nested_condition_checkers, nested_condition_converter,
 };
-use crate::index::query_optimization::optimized_filter::{
-    NestedOptimizedFilter, OptimizedCondition, OptimizedFilter,
-};
+use crate::index::query_optimization::optimized_filter::{OptimizedCondition, OptimizedFilter};
 use crate::index::query_optimization::payload_provider::PayloadProvider;
 use crate::types::{Condition, Filter, PayloadKeyType};
 
@@ -64,6 +62,7 @@ where
                     payload_provider.clone(),
                     estimator,
                     total,
+                    nested_path,
                 );
                 filter_estimations.push(estimation);
                 Some(optimized_conditions)
@@ -97,29 +96,13 @@ where
                     payload_provider.clone(),
                     estimator,
                     total,
+                    nested_path,
                 );
                 filter_estimations.push(estimation);
                 Some(optimized_conditions)
             } else {
                 None
             }
-        }),
-        nested: filter.nested.as_ref().map(|nested| {
-            let (optimized_filter, estimation) = optimize_filter(
-                &nested.filter,
-                id_tracker,
-                field_indexes,
-                payload_provider.clone(),
-                estimator,
-                total,
-                Some(nested.path.as_ref()),
-            );
-            filter_estimations.push(estimation);
-            let nested_optimized_filter = NestedOptimizedFilter {
-                path: &nested.path,
-                filter: optimized_filter,
-            };
-            Box::new(nested_optimized_filter)
         }),
     };
 
@@ -164,6 +147,18 @@ where
         conditions
             .iter()
             .map(|condition| match condition {
+                Condition::Nested(nested_filter) => {
+                    let (optimized_filter, estimation) = optimize_filter(
+                        nested_filter.filter(),
+                        id_tracker,
+                        field_indexes,
+                        payload_provider.clone(),
+                        estimator,
+                        total,
+                        Some(nested_filter.key()),
+                    );
+                    (OptimizedCondition::Filter(optimized_filter), estimation)
+                }
                 Condition::Filter(filter) => {
                     let (optimized_filter, estimation) = optimize_filter(
                         filter,
@@ -198,6 +193,7 @@ fn optimize_should<'a, F>(
     payload_provider: PayloadProvider,
     estimator: &F,
     total: usize,
+    nested_path: Option<&'a str>,
 ) -> (Vec<OptimizedCondition<'a>>, CardinalityEstimation)
 where
     F: Fn(&Condition) -> CardinalityEstimation,
@@ -209,7 +205,7 @@ where
         payload_provider,
         estimator,
         total,
-        None,
+        nested_path,
     );
     // More probable conditions first
     converted.sort_by_key(|(_, estimation)| Reverse(estimation.exp));
@@ -218,7 +214,7 @@ where
     (conditions, combine_should_estimations(&estimations, total))
 }
 
-fn optimize_must<'a, F>(
+pub fn optimize_must<'a, F>(
     conditions: &'a [Condition],
     id_tracker: &IdTrackerSS,
     field_indexes: &'a IndexesMap,
@@ -253,6 +249,7 @@ fn optimize_must_not<'a, F>(
     payload_provider: PayloadProvider,
     estimator: &F,
     total: usize,
+    nested_path: Option<&'a str>,
 ) -> (Vec<OptimizedCondition<'a>>, CardinalityEstimation)
 where
     F: Fn(&Condition) -> CardinalityEstimation,
@@ -264,7 +261,7 @@ where
         payload_provider,
         estimator,
         total,
-        None,
+        nested_path,
     );
     // More probable conditions first, as it will be reverted
     converted.sort_by_key(|(_, estimation)| estimation.exp);
