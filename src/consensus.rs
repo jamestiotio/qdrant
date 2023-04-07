@@ -1018,6 +1018,7 @@ mod tests {
                                 size: NonZeroU64::new(10).unwrap(),
                                 distance: Distance::Cosine,
                                 hnsw_config: None,
+                                quantization_config: None,
                             }
                             .into(),
                             hnsw_config: None,
